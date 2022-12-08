@@ -1,11 +1,8 @@
 # Arduino-EEG-Experiments Notebook
 
-- Arduino
-  - grabs data from Mikroe EEG click board at a known rate
-  - outputs via serial
-    - format: "time,value"
-- Processing
-  - graph of values
-  - FFT
-  - spectrum
-  - show individual waves
+This code is the messiest I've ever written. I will clean it up.
+- Features
+  - Reads sensor value via analog pin
+  - outputs via serial, BLE, and writes to microSD card
+  - uses RTC solely for timestamping the overall file; timestamps for individual records are done in micros()
+  - performs FFT

@@ -1,0 +1,10 @@
+#define SD_CS 2
+#define EEG_PIN 14
+#define DOTSTAR_DATAPIN 8
+#define DOTSTAR_CLOCKPIN 6
+#define PIN_BUTTON 13
+#define BATT_PIN 17
+
+#define EEG_INPUT_REF 2.048
+#define ADC_VOLTAGE_REF 3.6
+#define ADC_RESOLUTION 14
