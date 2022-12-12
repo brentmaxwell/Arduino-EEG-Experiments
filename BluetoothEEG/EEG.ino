@@ -1,41 +1,50 @@
 #define MAINS_FREQ 60
 #define EEG_FREQ_LOW 0.5
-#define EEG_FREQ_HIGH 60
+#define EEG_FREQ_HIGH 64
 
-#define DELTA       0
-#define DELTA_LOW   (0.5)
-#define DELTA_HIGH  (3.9)
-#define THETA       1
-#define THETA_LOW   (4.0)
-#define THETA_HIGH  (7.9)
-#define ALPHA       2
-#define ALPHA_LOW   (8.0)
-#define ALPHA_HIGH  (11.9)
-#define BETA        3
-#define BETA_LOW    (12.0)
-#define BETA_HIGH   (29.9)
-#define GAMMA       4
-#define GAMMA_LOW   (30.0)
-#define GAMMA_HIGH  (64.0)
+#define DELTA 0
+#define DELTA_LOW (0.5)
+#define DELTA_HIGH (3.9)
+#define THETA 1
+#define THETA_LOW (4.0)
+#define THETA_HIGH (7.9)
+#define ALPHA 2
+#define ALPHA_LOW (8.0)
+#define ALPHA_HIGH (11.9)
+#define BETA 3
+#define BETA_LOW (12.0)
+#define BETA_HIGH (29.9)
+#define GAMMA 4
+#define GAMMA_LOW (30.0)
+#define GAMMA_HIGH (64.0)
+
+#include <arduinoFFT.h>
+#include <KickFiltersRT.h>
 
 const unsigned long sample_period = 1000000 / SAMPLE_FREQ;
-
-bool notch = true;
-bool highPass = true;
-bool lowPass = true;
 
 const double binWidth = SAMPLES / SAMPLE_FREQ;
 
 int waveFreq[5][2] = {
-  { 0, 4 },    // Delta
-  { 4, 8 },    // Theta
-  { 8, 12 },   // Alpha
-  { 12, 30 },  // Beta
-  { 30, 64 }   // Gamma
+  { DELTA_LOW, DELTA_HIGH },  // Delta
+  { THETA_LOW, THETA_HIGH },  // Theta
+  { ALPHA_LOW, ALPHA_HIGH },  // Alpha
+  { BETA_LOW, BETA_HIGH },    // Beta
+  { GAMMA_LOW, GAMMA_HIGH }   // Gamma
 };
 
-#include <arduinoFFT.h>
-#include <KickFiltersRT.h>
+double eeg_raw_data[SAMPLES];
+double eeg_filtered_data[SAMPLES];
+double eeg_imaginary_data[SAMPLES];
+double waves[5];
+
+double eeg_raw;
+double eeg_filtered;
+
+double ble_eeg_raw;
+double ble_wave_output[5];
+
+byte ble_out_counter = 0;
 
 KickFiltersRT<uint16_t> notchFilter;
 KickFiltersRT<uint16_t> highPassFilter;
@@ -56,31 +65,26 @@ void loopEeg() {
   static unsigned long sample_timer = timer + sample_period;  // set loop()timer
   static short t = 0;
 
-  if (timer >= sample_timer) {      // wheel-spin until next sample due
+  if (sample_timer - timer >= sample_period) {
     sample_timer += sample_period;  // reset loop timer
 
     if (t < SAMPLES) {
       ble_out_counter++;
-      eeg_raw_value = readEEG();
-      ble_eeg_raw_output = double((eeg_filtered_value)*adc_conversion_factor * 50) + 30;
-      eeg_filtered_value = filterEEG(eeg_raw_value);
-      eeg_raw_data[t] = eeg_raw_value;  //notchFilter.notch(value);
-      eeg_filtered_data[t] = eeg_filtered_value;
+      eeg_raw = readEEG();
+      eeg_filtered = filterEEG(eeg_raw);
+      ble_eeg_raw = double((eeg_filtered)*adc_conversion_factor * 50) + 30;
+      eeg_raw_data[t] = eeg_raw;
+      eeg_filtered_data[t] = eeg_filtered;
       eeg_imaginary_data[t] = 0;
-      double output[3] = { heart_rate_value, eeg_raw_value, eeg_filtered_value };
-      writeRawFile();
-      writeRawSerial();
-      if(ble_out_counter == 5){
-        writeRawBle();
+      writeRawData(timer_count, timer, heart_rate, eeg_raw);
+      if (ble_out_counter == 5) {
+        writeBleRaw(heart_rate, ble_eeg_raw);
         ble_out_counter = 0;
       }
       t++;
     } else {
       processFFT();
-      writeFFTFile();
-      writeFFTSerial();
-      //writeFFTBle();
-      writeBleWaves();
+      writeBleWaves(heart_rate, ble_eeg_raw, ble_wave_output, 5);
       t = 0;                                 // reset data acquistition
       sample_timer = timer + sample_period;  // reset loop() timer
     }
@@ -92,11 +96,7 @@ uint16_t readEEG() {
 }
 
 uint16_t filterEEG(uint16_t value) {
-  uint16_t val2 = value;
-  if (notch) val2 = notchFilter.notch(val2);
-  if (lowPass) val2 = lowPassFilter.lowpass(val2);
-  if (highPass) val2 = highPassFilter.highpass(val2);
-  return val2;
+  return highPassFilter.highpass(lowPassFilter.lowpass(notchFilter.notch(value)));
 }
 
 void processFFT() {
@@ -104,9 +104,9 @@ void processFFT() {
   FFT.Windowing(FFT_WIN_TYP_BLACKMAN_HARRIS, FFT_FORWARD);  // Sets the windowing for the FFT
   FFT.Compute(FFT_FORWARD);                                 // Computes the FFT
   FFT.ComplexToMagnitude();                                 // Determines magnitudes from imaginary data (we are not interested in the imaginary part for this FFT application)
-  for (int i = 0; i < 5; i++) {
-    waves[i] = round(averagePower(eeg_filtered_data, waveFreq[i][0] * binWidth, waveFreq[i][1] * binWidth));
-    ble_wave_output[i] = double((waves[i]) * adc_conversion_factor * 20) + (4 * (i + 1));
+  for (byte i = 0; i < 5; i++) {
+    waves[i] = getWaveValue(eeg_filtered_data, i);
+    ble_wave_output[i] = double((waves[i]) * adc_conversion_factor * 20);  // + (2 * (i + 1));
   }
 }
 
@@ -117,6 +117,10 @@ double averagePower(double realArray[], int start, int finish) {
     sum += (sq(realArray[start]));
   }
   return sqrt(sum / coefficientCount);
+}
+
+double getWaveValue(double data[], byte wave_type) {
+  return round(averagePower(data, floor(double(waveFreq[wave_type][0] * binWidth)), ceil(waveFreq[wave_type][1] * binWidth)));
 }
 
 double getPeak() {

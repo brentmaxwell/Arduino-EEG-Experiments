@@ -1,114 +1,89 @@
 #pragma GCC diagnostic ignored "-Wnarrowing"
-
 #include "Hardware.h"
 #include "config.h"
-#include <SPI.h>
-#include <SoftwareSerial.h>
+#include "rtc.cpp"
+#include "battery.cpp"
+#include "led.cpp"
+#include "data.h"
 
-const double adc_conversion_factor = double(ADC_VOLTAGE_REF) / double(pow(2, ADC_RESOLUTION));
+Battery batt(BATTERY_PIN, ADC_RESOLUTION, ADC_VOLTAGE_REF);
+Adafruit_DotStar dot(DOTSTAR_NUMPIXELS, DOTSTAR_DATAPIN, DOTSTAR_CLOCKPIN, DOTSTAR_BRG);
+StatusLED statusLed(dot);
+RtcClock rtcClock;
 
-
-double eeg_raw_data[SAMPLES];
-double eeg_filtered_data[SAMPLES];
-double eeg_imaginary_data[SAMPLES];
-double waves[5];
-
-double eeg_raw_value;
-double eeg_filtered_value;
-bool hr_valid = false;
-int heart_rate_value;
-
-double ble_eeg_raw_output;
-double ble_wave_output[5];
+HeartRate heart_rate;
 
 unsigned long sample_timer;
 unsigned long period_timer;
 unsigned long startTimer = 0;
-unsigned long timer;
-unsigned long pressTimer;
+unsigned long timer = 0;
+int timer_count = 0;  //multiply each timer by 4,294,967,295
 
-double battery_level = 0;
-double battery_level_percent = 0;
-bool buttonState;      // the current reading from the input pin
-bool lastButtonState;  // the previous reading from the input pin
-int press_count = 0;
 
-byte ble_out_counter = 0;
-
-String sensor_location = "";
+int commandSource = 0;
+String commandString = "";
+bool stringComplete = false;
 
 void setup() {
-  getBatteryLevel();
-  Serial.begin(BAUD_RATE);
-  delay(1000);
-  Serial.println("Initializing...");
-  Serial.print("Serial...");
-  Serial.println("OK");
-  Serial.flush();
-  Serial.print("LED...");
-  setupLED();
-  Serial.println("OK");
-  Serial.flush();
-  Serial.print("EEG...");
-  setupEEG();
-  Serial.println("OK");
-  Serial.flush();
-  Serial.println("RTC...");
-  if (setupRtc()) {
-    Serial.println("OK");
-  } else {
-    Serial.println("ERROR");
-  }
-  Serial.flush();
-  Serial.println("BLE...");
-  if (setupBLE()) {
-    Serial.println("OK");
-  } else {
-    Serial.println("ERROR");
-  }
-  Serial.flush();
-  Serial.print("HRM...");
-  if (setupHrm()) {
-    Serial.println("OK");
-  } else {
-    Serial.println("ERROR");
-  }
-  Serial.flush();
-  Serial.print("SD...");
-  if (setupSD()) {
-    Serial.println("OK");
-  } else {
-    Serial.println("ERROR");
-  }
-  Serial.flush();
   pinMode(PIN_BUTTON, INPUT_PULLUP);
-  Serial.println("complete");
+  pinMode(PIN_USB_DETECT, INPUT_PULLDOWN);
+  statusLed.begin();
+  Serial.begin(BAUD_RATE);
+  delay(3000);
+  if (digitalRead(PIN_BUTTON) == 0 || msc_mode) {
+    msc_mode = true;
+    setupMSC();
+    statusLed.mscStatus(true);
+    while (digitalRead(PIN_BUTTON) == 0) {
+      statusLed.toggle();
+      delay(200);
+    }
+    statusLed.on();
+    Serial.println("Connected Mass Storage");
+  } else {
+    Serial.begin(BAUD_RATE);
+    Serial.println("Initializing...");
+    rtcClock.begin();
+    setupSD();
+    setupEEG();
+    setupBLE();
+    setupHrm();
+    Serial.println("complete");
+    Serial.flush();
+  }
 }
 
 void loop() {
-  getBatteryLevel();
-  timer = micros() - startTimer;
-  //loopBle();
-  if (Serial.available() > 0) {
-    String testString = Serial.readString();
-    writeMessage(timer, testString);
+  static unsigned long secondTimer = micros();
+  static bool buttonState;      // the current reading from the input pin
+  static bool lastButtonState;  // the previous reading from the input pin
+  static int press_count = 0;
+  static unsigned long pressTimer;
+
+  if (micros() < timer) timer_count++;
+  timer = micros();
+  if (timer - secondTimer > 1000000) {
+    batt.update();
+    statusLed.toggle();
+    secondTimer = timer;
   }
+  loopCommand();
   buttonState = digitalRead(PIN_BUTTON);
   if (buttonState < lastButtonState) {
     pressTimer = timer;
-    press_count++;
-    double output[1] = { press_count };
-    writeData("M", timer, output, 1, MESSAGE);
+    if (!msc_mode) {
+      double output[1] = { press_count };
+      writeMessage(timer_count, timer, String(press_count));
+      press_count++;
+    }
   } else if (buttonState == 0 && (timer - pressTimer) > 3000000) {
     NVIC_SystemReset();
   } else if (buttonState > lastButtonState) {
     pressTimer = 0;
   }
   lastButtonState = buttonState;
-
-  loopEeg();
+  if (!msc_mode) {
+    loopBle();
+    loopEeg();
+  }
 }
-
-// void getBatteryLevel(){
-//   battery_level = (((double(analogRead(BATT_PIN)) * adc_conversion_factor)-3.3)/(ADC_VOLTAGE_REF-3.3)) * 100;
-// }

@@ -1,139 +1,86 @@
-void writeData(String type, unsigned long timer, double messageData[], short sizeOf, byte source) {
-  String message = "";
-  message += timer;
+void writeMessage(int timer_count, unsigned long timer, String messageData) {
+  String message = rtcClock.getDateTime();
   message += ",";
-  message += type;
+  message += timer_count;
   message += ",";
-  for (byte i = 0; i < sizeOf - 1; i++) {
-    message += messageData[i];
-    message += ",";
-  }
-  message += messageData[sizeOf - 1];
-  message += ";\n";
-  Serial.print(getTime());
-  Serial.print(" ");
-  Serial.print(battery_level_percent);
-  Serial.print(" ");
-  Serial.print(message);
-  Serial.flush();
-  writeBle(message);
-  writeFile(message);
-}
-
-void writeMessage(unsigned long timer, String messageData) {
-  String message = "";
   message += timer;
   message += ",M,";
   message += messageData;
-  Serial.print(message);
-  Serial.flush();
-  writeBle(message);
+  message += "\n";
+  if (output_serial) {
+    Serial.print(message);
+    Serial.flush();
+  }
+  //writeBle(message);
+  writeFile(message);
+}
+
+void writeRawData(int timer_count, unsigned long timer, HeartRate heart_rate, double eeg_value) {
+  String message = rtcClock.getDateTime();
+  message += ",";
+  message += timer_count;
+  message += ",";
+  message += timer;
+  message += ",R,";
+  message += heart_rate.value;
+  message += ",";
+  message += eeg_value;
+  message += "\n";
+  if (output_serial) {
+    Serial.print(message);
+    Serial.flush();
+  }
+  //writeBle(message);
   writeFile(message);
 }
 
 
-void writeRawSerial() {
+void writeBleRaw(HeartRate heart_rate, double eeg_value) {
   String message = "";
-  message += timer;
-  message += ",R,";
-  message += heart_rate_value;
+  message += heart_rate.value;
   message += ",";
-  message += eeg_raw_value;
-  message += ",";
-  message += eeg_filtered_value;
-  message += ",\n";
-  Serial.print(getTime());
-  Serial.print(" ");
-  Serial.print(battery_level_percent);
-  Serial.print(" ");
-  Serial.print(message);
-  Serial.flush();
+  message += eeg_value;
+  message += "\n";
+  if (output_ble) {
+    writeBle(message);
+  }
 }
 
-void writeWavesSerial() {
+void writeBleWaves(HeartRate heart_rate, double eeg_value, double waves[], int wave_len) {
   String message = "";
-  message += ",,";
-  for (char i = 0; i < 5; i++) {
+  message += heart_rate.value;
+  message += ",";
+  message += eeg_value;
+  message += ",";
+  for (char i = 0; i < wave_len; i++) {
     message += waves[i];
     message += ",";
   }
   message += "\n";
-  Serial.print(message);
-  Serial.flush();
-}
-
-void writeRawFile() {
-  String message = "";
-  message += timer;
-  message += ",R,";
-  message += heart_rate_value;
-  message += ",";
-  message += eeg_raw_value;
-  message += ",";
-  message += eeg_filtered_value;
-  message += ",\n";
-  writeFile(message);
-}
-
-void writeRawBle() {
-  String message = "";
-  if (hr_valid) message += heart_rate_value;
-  message += ",";
-  message += ble_eeg_raw_output;
-  message += "\n";
-  writeBle(message);
-}
-
-void writeFFTSerial() {
-  String message = "";
-  message += timer;
-  message += ",F,,,,";
-  for (byte i = 0; i < SAMPLES - 1; i++) {
-    message += eeg_filtered_data[i];
-    message += ",";
+  if (output_ble) {
+    writeBle(message);
   }
-  message += eeg_filtered_data[SAMPLES - 1];
-  message += "\n";
-  Serial.print(message);
-  Serial.flush();
 }
 
-void writeFFTFile() {
-  String message = "";
-  message += timer;
-  message += ",F,,,,";
-  for (byte i = 0; i < SAMPLES - 1; i++) {
-    message += eeg_filtered_data[i];
-    message += ",";
-  }
-  message += eeg_filtered_data[SAMPLES - 1];
-  message += "\n";
-  writeFile(message);
-}
-
-void writeFFTBle() {
-  String message = "";
-  message += timer;
-  message += ",,,,";
-  for (int i = 0; i < SAMPLES - 1; i++) {
-    message += eeg_filtered_data[i];
-    message += ",";
-  }
-  message += eeg_filtered_data[SAMPLES - 1];
-  message += "\n";
-  writeBle(message);
-}
-
-void writeBleWaves() {
-   String message = "";
-  if (hr_valid) message += heart_rate_value;
-  message += ",";
-  message += ble_eeg_raw_output;
-  message += ",";
-  for (char i = 0; i < 4; i++) {
-    message += ble_wave_output[i];
-    message += ",";
-  }
-  message += "\n";
-  writeBle(message);
-}
+// void writeData(String type, int timer_count, unsigned long timer, double messageData[], short sizeOf, bool serial, bool file) {
+//   String message = getTime();
+//   message += ",";
+//   message += timer_count;
+//   message += ",";
+//   message += timer;
+//   message += ",";
+//   message += type;
+//   message += ",";
+//   for (byte i = 0; i < sizeOf - 1; i++) {
+//     message += messageData[i];
+//     message += ",";
+//   }
+//   message += messageData[sizeOf - 1];
+//   message += ";\n";
+//   Serial.print(battery_level_percent);
+//   Serial.print(" ");
+//   Serial.print(message);
+//   Serial.flush();
+//   writeBle(message);
+//   writeFile(message);
+// }

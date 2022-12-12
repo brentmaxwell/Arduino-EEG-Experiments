@@ -1,24 +1,34 @@
-#include <SD.h>
+#include "SPI.h"
+#include <SdFat.h>
+#include <Adafruit_TinyUSB.h>
 
+SdFat SD;
+SdFile root;
+SdFile dataFile;
 Adafruit_USBD_MSC usb_msc;
 
-Sd2Card card;
-SdVolume volume;
-
-File dataFile;
 char filename[12];
 bool cardAvailable = false;
 
 bool setupSD() {
+  Serial.print("SD...");
   if (SD.begin(SD_CS)) {
     cardAvailable = true;
-    setRed(255);
+    Serial.println("OK");
+    Serial.flush();
+    statusLed.storageStatus(true);
     return openFile();
   } else {
-    Serial.println("SD Card initialization failure");
-    setRed(0);
+    Serial.println("ERROR");
+    statusLed.storageStatus(false);
     return false;
   }
+}
+
+void fileDateTime(uint16_t* date, uint16_t* time) {
+  DateTime now = rtcClock.now();
+  *date = FAT_DATE(now.year(), now.month(), now.day());
+  *time = FAT_TIME(now.hour(), now.minute(), now.second());
 }
 
 bool openFile() {
@@ -29,52 +39,149 @@ bool openFile() {
       sprintf(filename, "/eeg_%02d.txt", fileNum);
     } while (SD.exists(filename));
     Serial.print("Opening ");
-    Serial.println(filename);
-    dataFile = SD.open(filename, FILE_WRITE);
+    Serial.print(filename);
+    Serial.println("...");
+    SdFile::dateTimeCallback(fileDateTime);
+    dataFile.open(filename, FILE_WRITE);
     if (dataFile) {
-      Serial.print(filename);
       dataFile.print("DateTime: ");
-      dataFile.println(getTime());
+      dataFile.println(rtcClock.getDateTime());
       dataFile.print("Sample Frequency: ");
       dataFile.println(SAMPLE_FREQ);
       dataFile.print("Samples/Period: ");
       dataFile.println(SAMPLES);
-      dataFile.println("----------------------------------------------------------------");
-      dataFile.print("Timer,Heart Rate,EEG Raw,EEG Filtered,");
-      for (int i = 0; i < SAMPLES - 1; i++) {
-        dataFile.print("Sample ");
-        dataFile.print(i);
-        dataFile.print(",");
-      }
-      dataFile.print("Sample ");
-      dataFile.println(SAMPLES - 1);
+      dataFile.println("-------------------------------------------");
+      dataFile.println("Time,Timer Count,Timer,Heart Rate,EEG Raw");
       dataFile.flush();
-      startTimer = micros();
-      Serial.println(" opened");
-      setRed(255);
+      Serial.println("OK");
+      Serial.flush();
+      statusLed.storageStatus(true);
       return true;
     } else {
-      Serial.print("Error opening file ");
-      Serial.println(filename);
-      setRed(0);
+      Serial.println("ERROR");
+      Serial.flush();
+      statusLed.storageStatus(false);
       return false;
     }
   }
+  statusLed.storageStatus(false);
   return false;
 }
 
 void writeFile(String data) {
   static short bufferSize = 0;
-  if (dataFile && writeToFile) {
+  if (dataFile && output_file) {
     dataFile.print(data);
     bufferSize++;
     if (bufferSize == SAMPLES * 2) {
       dataFile.flush();
       bufferSize = 0;
-      setRed(255);
+      statusLed.storageStatus(true);
     }
-    setRed(255);
   } else {
-    setRed(0);
+    statusLed.storageStatus(false);
   }
+}
+
+String listFiles() {
+  DirFat_t dir;
+  char fileName[13];
+  String fileList;
+  SdFile file;
+  root.open("/");
+  while (file.openNext(&root, O_RDONLY)) {
+    file.dirEntry(&dir);
+    file.getSFN(fileName, 13);
+    fileList += fileName;
+    if (file.isDir()) {
+      fileList += "/";
+      fileList += "\t";
+    } else {
+      fileList += "\t";
+      fileList += file.fileSize();
+    }
+    fileList += "\t";
+    fileList += fileDateTime(dir.createDate, dir.createTime).timestamp();
+    //file.getCreateDateTime(fileDate, fileTime);
+    fileList += "\n";
+    file.close();
+  }
+  root.close();
+  return fileList;
+}
+
+DateTime fileDateTime(uint8_t createDate_arr[], uint8_t createTime_arr[]) {
+  int createDate = (createDate_arr[1] << 8) + createDate_arr[0];
+  int createTime = (createTime_arr[1] << 8) + createTime_arr[0];
+  return DateTime(FS_YEAR(createDate), FS_MONTH(createDate), FS_DAY(createDate), FS_HOUR(createTime), FS_MINUTE(createTime), FS_SECOND(createTime));
+}
+
+// the setup function runs once when you press reset or power the board
+void setupMSC() {
+  Serial.println("Mass Storage Device...");
+  // Set disk vendor id, product id and revision with string up to 8, 16, 4 characters respectively
+  usb_msc.setID("Adafruit", "SD Card", "1.0");
+
+  // Set read write callback
+  usb_msc.setReadWriteCallback(msc_read_cb, msc_write_cb, msc_flush_cb);
+
+  // Still initialize MSC but tell usb stack that MSC is not ready to read/write
+  // If we don't initialize, board will be enumerated as CDC only
+  usb_msc.setUnitReady(false);
+  usb_msc.begin();
+
+  Serial.begin(BAUD_RATE);
+
+  Serial.println("\nInitializing SD card...");
+
+  if (!SD.begin(SD_CS, SD_SCK_MHZ(50))) {
+    Serial.println("ERROR");
+    statusLed.off();
+    return;
+  }
+
+  // Now we will try to open the 'volume'/'partition' - it should be FAT16 or FAT32
+  // if (!volume.init(card)) {
+  //   Serial.println("CARD ERROR");
+  //   statusLed.off();
+  //   while (1) delay(1);
+  // }
+
+  uint32_t block_count = SD.card()->cardSize();
+
+  Serial.print("Volume size (MB):  ");
+  Serial.println((block_count / 2) / 1024);
+
+  // Set disk size, SD block size is always 512
+  usb_msc.setCapacity(block_count, 512);
+
+  // MSC is ready for read/write
+  usb_msc.setUnitReady(true);
+  Serial.println("OK");
+  Serial.flush();
+}
+
+// Callback invoked when received READ10 command.
+// Copy disk's data to buffer (up to bufsize) and
+// return number of copied bytes (must be multiple of block size)
+int32_t msc_read_cb(uint32_t lba, void* buffer, uint32_t bufsize) {
+  (void)bufsize;
+  return SD.card()->readBlock(lba, (uint8_t*)buffer) ? 512 : -1;
+}
+
+// Callback invoked when received WRITE10 command.
+// Process data in buffer to disk's storage and
+// return number of written bytes (must be multiple of block size)
+int32_t msc_write_cb(uint32_t lba, uint8_t* buffer, uint32_t bufsize) {
+  (void)bufsize;
+  return SD.card()->writeBlock(lba, buffer) ? 512 : -1;
+}
+
+// Callback invoked when WRITE10 command is completed (status received and accepted by host).
+// used to flush any pending cache.
+void msc_flush_cb(void) {
+  SD.card()->syncBlocks();
+
+  // clear file system's cache to force refresh
+  SD.cacheClear();
 }
