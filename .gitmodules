@@ -1,0 +1,3 @@
+[submodule "BluetoothEEG/DumbDisplay"]
+	path = BluetoothEEG/DumbDisplay
+	url = https://github.com/trevorwslee/Arduino-DumbDisplay.git

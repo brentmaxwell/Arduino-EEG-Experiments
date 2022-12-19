@@ -1,13 +1,12 @@
-#include "SPI.h"
+#include <SPI.h>
 #include <SdFat.h>
-#include <Adafruit_TinyUSB.h>
 
 SdFat SD;
 SdFile root;
 SdFile dataFile;
 Adafruit_USBD_MSC usb_msc;
 
-char filename[12];
+//char filename[34];
 bool cardAvailable = false;
 
 bool setupSD() {
@@ -17,6 +16,7 @@ bool setupSD() {
     Serial.println("OK");
     Serial.flush();
     statusLed.storageStatus(true);
+    SdFile::dateTimeCallback(fileDateTime);
     return openFile();
   } else {
     Serial.println("ERROR");
@@ -31,17 +31,24 @@ void fileDateTime(uint16_t* date, uint16_t* time) {
   *time = FAT_TIME(now.hour(), now.minute(), now.second());
 }
 
+void getFilename(char *buf){
+  DateTime now = rtcClock.now();
+  sprintf(buf, "%04d-%02d-%02dT%02d-%02d-%02d.txt", now.year(), now.month(), now.day(), now.hour(), now.minute(), now.second());
+}
+
 bool openFile() {
   if (cardAvailable) {
     int fileNum = 0;
-    do {
-      fileNum++;
-      sprintf(filename, "/eeg_%02d.txt", fileNum);
-    } while (SD.exists(filename));
+    //do {
+    //  fileNum++;
+      //sprintf(filename, "/eeg_%02d.txt", fileNum);
+    //} while (SD.exists(filename));
+
+    char filename[23];
+    getFilename(filename);
     Serial.print("Opening ");
     Serial.print(filename);
     Serial.println("...");
-    SdFile::dateTimeCallback(fileDateTime);
     dataFile.open(filename, FILE_WRITE);
     if (dataFile) {
       dataFile.print("DateTime: ");
@@ -68,6 +75,8 @@ bool openFile() {
   return false;
 }
 
+
+
 void writeFile(String data) {
   static short bufferSize = 0;
   if (dataFile && output_file) {
@@ -85,30 +94,37 @@ void writeFile(String data) {
 
 String listFiles() {
   DirFat_t dir;
-  char fileName[13];
   String fileList;
   SdFile file;
   root.open("/");
   while (file.openNext(&root, O_RDONLY)) {
+    String fileRow;
+    char fileName[255];
+
     file.dirEntry(&dir);
-    file.getSFN(fileName, 13);
-    fileList += fileName;
+    file.getName(fileName, 255);
+    fileRow = String(fileName);
     if (file.isDir()) {
-      fileList += "/";
-      fileList += "\t";
-    } else {
-      fileList += "\t";
-      fileList += file.fileSize();
+      fileRow += "/";
     }
-    fileList += "\t";
-    fileList += fileDateTime(dir.createDate, dir.createTime).timestamp();
-    //file.getCreateDateTime(fileDate, fileTime);
-    fileList += "\n";
+    for(char i = fileRow.length(); i<50; i++ ){
+      fileRow += " ";
+    }
+    if(!file.isDir()) {
+      fileRow += file.fileSize();
+    }
+    for(char i = fileRow.length(); i<65; i++ ){
+      fileRow += " ";
+    }
+    fileRow += fileDateTime(dir.createDate, dir.createTime).timestamp();
+    fileRow += "\n";
+    fileList += fileRow;
     file.close();
   }
   root.close();
   return fileList;
 }
+
 
 DateTime fileDateTime(uint8_t createDate_arr[], uint8_t createTime_arr[]) {
   int createDate = (createDate_arr[1] << 8) + createDate_arr[0];
@@ -140,13 +156,6 @@ void setupMSC() {
     return;
   }
 
-  // Now we will try to open the 'volume'/'partition' - it should be FAT16 or FAT32
-  // if (!volume.init(card)) {
-  //   Serial.println("CARD ERROR");
-  //   statusLed.off();
-  //   while (1) delay(1);
-  // }
-
   uint32_t block_count = SD.card()->cardSize();
 
   Serial.print("Volume size (MB):  ");
@@ -157,6 +166,7 @@ void setupMSC() {
 
   // MSC is ready for read/write
   usb_msc.setUnitReady(true);
+  Serial.println("Connected Mass Storage");
   Serial.println("OK");
   Serial.flush();
 }

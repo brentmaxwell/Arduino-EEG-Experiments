@@ -35,7 +35,7 @@ void loopCommand() {
     if (commandString.startsWith("hwinfo")) HwInfoCommand(commandString);
     if (commandString.startsWith("date")) Run(DateCommand(commandString));
     if (commandString.startsWith("set time")) Run(SetTimeCommand(commandString));
-    if(commandString.startsWith("batt")) Run(BattCommand(commandString));
+    if (commandString.startsWith("batt")) Run(BattCommand(commandString));
     if (commandString.startsWith("reset")) ResetCommand(commandString);
     if (commandString.startsWith("led")) LedCommand(commandString);
     Serial.flush();
@@ -93,7 +93,7 @@ void LedCommand(String commandString) {
   get_token(commandString, r, 1, ' ');
   get_token(commandString, g, 2, ' ');
   get_token(commandString, b, 3, ' ');
-  statusLed.set(r.toInt(), g.toInt(), g.toInt());
+  statusLed.setColor(r.toInt(), g.toInt(), g.toInt());
 }
 
 String SetTimeCommand(String commandString) {

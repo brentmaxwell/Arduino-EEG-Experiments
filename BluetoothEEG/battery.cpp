@@ -3,28 +3,27 @@
 class Battery {
 private:
   byte _pin;
-  byte _analog_resolution;
-  int _mv_reference;
+  double _analog_resolution;
+  double _mv_reference;
   float _vbat_divider;
-  double _vbat_divider_per_lsb;
+  double _vbat_mv_per_lsb;
   double _real_vbat_mv_per_lsb;
   float _level;
   float _percent;
 public:
-  Battery(byte pin, byte analog_resolution, int v_reference) {
+  Battery(byte pin, byte analog_resolution, double v_reference) {
     this->_pin = pin;
-    this->_mv_reference = v_reference * 1000;
+    this->_mv_reference = v_reference * 1000.0F;
     this->_analog_resolution = pow(2, analog_resolution);
-    this->_vbat_divider_per_lsb = double(this->_mv_reference / this->_analog_resolution);
-    this->_real_vbat_mv_per_lsb = double(2.0F * this->_vbat_divider_per_lsb);
+    this->_vbat_mv_per_lsb = (this->_mv_reference) / (this->_analog_resolution);
+    this->_real_vbat_mv_per_lsb = 2.0F * this->_vbat_mv_per_lsb;
   }
   void update() {
     // Convert the raw value to compensated mv, taking the resistor-
     // divider into account (providing the actual LIPO voltage)
     // ADC range is 0..3000mV and resolution is 12-bit (0..4095)
-    // analogRead(_pin); //throw it out to allow the multiplexer to reset
-    // this->_level =  analogRead(_pin) * this->_real_vbat_mv_per_lsb;
-    this->_level = 4000;
+    analogRead(_pin); //throw it out to allow the multiplexer to reset
+    this->_level =  analogRead(_pin) * this->_real_vbat_mv_per_lsb;
     if (this->_level < 3300)
       this->_percent = 0;
 

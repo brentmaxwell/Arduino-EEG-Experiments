@@ -7,10 +7,9 @@ void writeMessage(int timer_count, unsigned long timer, String messageData) {
   message += ",M,";
   message += messageData;
   message += "\n";
-  if (output_serial) {
-    Serial.print(message);
-    Serial.flush();
-  }
+  Serial.print(message);
+  Serial.flush();
+
   //writeBle(message);
   writeFile(message);
 }
@@ -62,25 +61,23 @@ void writeBleWaves(HeartRate heart_rate, double eeg_value, double waves[], int w
   }
 }
 
-// void writeData(String type, int timer_count, unsigned long timer, double messageData[], short sizeOf, bool serial, bool file) {
-//   String message = getTime();
-//   message += ",";
-//   message += timer_count;
-//   message += ",";
-//   message += timer;
-//   message += ",";
-//   message += type;
-//   message += ",";
-//   for (byte i = 0; i < sizeOf - 1; i++) {
-//     message += messageData[i];
-//     message += ",";
-//   }
-//   message += messageData[sizeOf - 1];
-//   message += ";\n";
-//   Serial.print(battery_level_percent);
-//   Serial.print(" ");
-//   Serial.print(message);
-//   Serial.flush();
-//   writeBle(message);
-//   writeFile(message);
-// }
+void writeData(String type, int timer_count, unsigned long timer, uint32_t messageData[], short sizeOf) {
+  String message = rtcClock.getDateTime();
+  message += ",";
+  message += timer_count;
+  message += ",";
+  message += timer;
+  message += ",";
+  message += type;
+  message += ",";
+  for (int i = 0; i < sizeOf - 1; i++) {
+    message += messageData[i];
+    message += ",";
+  }
+  message += messageData[sizeOf - 1];
+  message += ";\n";
+  Serial.print(message);
+  Serial.flush();
+  //writeBle(message);
+  //writeFile(message);
+}

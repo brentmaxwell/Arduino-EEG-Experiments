@@ -7,9 +7,11 @@ BLEUart bleuart;  // uart over ble
 BLEBas blebas;    // battery
 
 // HRM
-BLEClientService hrms(UUID16_SVC_HEART_RATE);
-BLEClientCharacteristic hrmc(UUID16_CHR_HEART_RATE_MEASUREMENT);
-BLEClientCharacteristic bslc(UUID16_CHR_BODY_SENSOR_LOCATION);
+BLEClientService hrms = BLEClientService(UUID16_SVC_HEART_RATE);
+BLEClientCharacteristic hrmc = BLEClientCharacteristic(UUID16_CHR_HEART_RATE_MEASUREMENT);
+BLEClientCharacteristic bslc = BLEClientCharacteristic(UUID16_CHR_BODY_SENSOR_LOCATION);
+
+bool bleConnected = false;
 
 void scan_callback(ble_gap_evt_adv_report_t* report);
 void hrm_notify_callback(BLEClientCharacteristic* chr, uint8_t* data, uint16_t len);
@@ -66,6 +68,8 @@ void connect_callback(uint16_t conn_handle) {
   connection->getPeerName(central_name, sizeof(central_name));
   Serial.print("Connected to ");
   Serial.println(central_name);
+  bleConnected = true;
+  //dumbdisplay.playbackLayerSetupCommands("raw_eeg");
   statusLed.bluetoothStatus(true);
 }
 
@@ -76,6 +80,7 @@ void disconnect_callback(uint16_t conn_handle, uint8_t reason) {
   Serial.print("Disconnected, reason = 0x");
   Serial.println(reason, HEX);
   statusLed.bluetoothStatus(false);
+  bleConnected = false;
 }
 
 void scan_callback(ble_gap_evt_adv_report_t* report) {
@@ -166,7 +171,7 @@ void loopBle() {
   }
 }
 
-void writeBle(String message) {
+void writeBle(String message) {  
   bleuart.print(message);
   bleuart.flush();
 }

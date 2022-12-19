@@ -1,6 +1,6 @@
 #define BAUD_RATE 115200
-#define SAMPLE_FREQ 256
-#define SAMPLES 256  // must be power of 2
+#define SAMPLE_FREQ 512
+#define SAMPLES 512  // must be power of 2
 
 #define EEG_RAW 0
 #define EEG_PROCESSED 1

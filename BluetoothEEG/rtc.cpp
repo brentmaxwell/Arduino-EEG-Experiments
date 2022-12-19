@@ -23,13 +23,14 @@ public:
   String getDateTime() {
     if (this->_rtc.initialized() && this->_rtc.isrunning()) {
       DateTime now = this->_rtc.now();
-      char dateTime[29];
+      char dateTime[19];
       sprintf(dateTime, "%04d/%02d/%02d %02d:%02d:%02d", now.year(), now.month(), now.day(), now.hour(), now.minute(), now.second());
       return String(dateTime);
     } else {
       return String(micros());
     }
   }
+
   void setDateTime(int year, int month, int day, int hour, int minute, int second) {
     this->_rtc.adjust(DateTime(year, month, day, hour, minute, second));
   }

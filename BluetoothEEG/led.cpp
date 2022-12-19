@@ -1,28 +1,55 @@
-#include <Adafruit_DotStar.h>
+#include <Adafruit_NeoPixel.h>
+
+
 
 class StatusLED {
 private:
-  Adafruit_DotStar _dot;
+  Adafruit_NeoPixel _neopixel;
   byte _colors[3];
   bool _state;
   void setBlue(byte val) {
     this->_colors[2] = val;
-    this->setColor();
+    this->on();
   }
   void setGreen(byte val) {
     this->_colors[0] = val;
-    this->setColor();
+    this->on();
   }
   void setRed(byte val) {
     this->_colors[1] = val;
-    this->setColor();
+    this->on();
   }
 public:
-  StatusLED(Adafruit_DotStar &dot)
-    : _dot(dot) {
+  StatusLED(Adafruit_NeoPixel &neopixel)
+    : _neopixel(neopixel) {
   }
   void begin() {
-    this->_dot.begin();
+    this->_neopixel.begin();
+  }
+  void setColor(uint8_t r, uint8_t g, uint8_t b) {
+    this->_colors[0] = g;
+    this->_colors[1] = r;
+    this->_colors[2] = b;
+    this->_neopixel.setPixelColor(0, _neopixel.Color(r, g, b));
+    this->_neopixel.show();
+    this->_state = true;
+  }
+  void off() {
+    this->_neopixel.clear();
+    this->_neopixel.show();
+    this->_state = false;
+  }
+  void on() {
+    this->_neopixel.setPixelColor(0, _neopixel.Color(this->_colors[0], this->_colors[1], this->_colors[2]));
+    this->_neopixel.show();
+    this->_state = true;
+  }
+  void toggle() {
+    if (this->_state) {
+      this->off();
+    } else {
+      this->on();
+    }
   }
   void bluetoothStatus(bool status) {
     this->setBlue(status * 255);
@@ -32,33 +59,5 @@ public:
   }
   void mscStatus(bool status) {
     this->setRed(status * 255);
-  }
-  void set(uint8_t r, uint8_t g, uint8_t b) {
-    this->_colors[0] = g;
-    this->_colors[1] = r;
-    this->_colors[2] = b;
-    this->_dot.setPixelColor(0, r, g, b);
-    this->_dot.show();
-    this->_state = true;
-  }
-  void setColor() {
-    this->_dot.setPixelColor(0, this->_colors[0], this->_colors[1], this->_colors[2]);
-    this->_dot.show();
-    this->_state = true;
-  }
-  void off() {
-    this->_dot.clear();
-    this->_dot.show();
-    this->_state = false;
-  }
-  void on() {
-    this->setColor();
-  }
-  void toggle() {
-    if (this->_state) {
-      this->off();
-    } else {
-      this->on();
-    }
   }
 };

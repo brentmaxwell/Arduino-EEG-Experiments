@@ -1,4 +1,6 @@
 #pragma GCC diagnostic ignored "-Wnarrowing"
+#include <Adafruit_TinyUSB.h>
+
 #include "Hardware.h"
 #include "config.h"
 #include "rtc.cpp"
@@ -6,9 +8,9 @@
 #include "led.cpp"
 #include "data.h"
 
-Battery batt(BATTERY_PIN, ADC_RESOLUTION, ADC_VOLTAGE_REF);
-Adafruit_DotStar dot(DOTSTAR_NUMPIXELS, DOTSTAR_DATAPIN, DOTSTAR_CLOCKPIN, DOTSTAR_BRG);
-StatusLED statusLed(dot);
+Battery batt = Battery(BATTERY_PIN, ADC_RESOLUTION, ADC_VOLTAGE_REF);
+Adafruit_NeoPixel neopixel = Adafruit_NeoPixel(NUM_OF_NEOPIXELS, NEOPIXEL_PIN);
+StatusLED statusLed = StatusLED(neopixel);
 RtcClock rtcClock;
 
 HeartRate heart_rate;
@@ -25,21 +27,19 @@ String commandString = "";
 bool stringComplete = false;
 
 void setup() {
-  pinMode(PIN_BUTTON, INPUT_PULLUP);
-  pinMode(PIN_USB_DETECT, INPUT_PULLDOWN);
+  pinMode(BUTTON_PIN, INPUT_PULLDOWN);
   statusLed.begin();
   Serial.begin(BAUD_RATE);
   delay(3000);
-  if (digitalRead(PIN_BUTTON) == 0 || msc_mode) {
+  if (digitalRead(BUTTON_PIN) == 1 || msc_mode) {
     msc_mode = true;
     setupMSC();
     statusLed.mscStatus(true);
-    while (digitalRead(PIN_BUTTON) == 0) {
+    while (digitalRead(BUTTON_PIN) == 1) {
       statusLed.toggle();
       delay(200);
     }
     statusLed.on();
-    Serial.println("Connected Mass Storage");
   } else {
     Serial.begin(BAUD_RATE);
     Serial.println("Initializing...");
@@ -48,6 +48,7 @@ void setup() {
     setupEEG();
     setupBLE();
     setupHrm();
+
     Serial.println("complete");
     Serial.flush();
   }
@@ -68,17 +69,18 @@ void loop() {
     secondTimer = timer;
   }
   loopCommand();
-  buttonState = digitalRead(PIN_BUTTON);
-  if (buttonState < lastButtonState) {
+  buttonState = digitalRead(BUTTON_PIN);
+  if (buttonState > lastButtonState) {
     pressTimer = timer;
     if (!msc_mode) {
       double output[1] = { press_count };
       writeMessage(timer_count, timer, String(press_count));
       press_count++;
     }
-  } else if (buttonState == 0 && (timer - pressTimer) > 3000000) {
+  } else if (buttonState == 1 && (timer - pressTimer) > 3000000) {
+    statusLed.off();
     NVIC_SystemReset();
-  } else if (buttonState > lastButtonState) {
+  } else if (buttonState < lastButtonState) {
     pressTimer = 0;
   }
   lastButtonState = buttonState;
