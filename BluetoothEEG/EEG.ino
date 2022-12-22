@@ -64,7 +64,6 @@ bool setupEEG() {
 void loopEeg() {
   static unsigned long sample_timer = timer + sample_period;  // set loop()timer
   static int t = 0;
-
   if (sample_timer - timer >= sample_period) {
     sample_timer += sample_period;  // reset loop timer
 
@@ -72,12 +71,12 @@ void loopEeg() {
       ble_out_counter++;
       eeg_raw = readEEG();
       eeg_filtered = filterEEG(eeg_raw);
-      ble_eeg_raw = double((eeg_filtered)*adc_conversion_factor * 50) + 30;
+      ble_eeg_raw = double((eeg_filtered)*adc_conversion_factor * 10);
       eeg_raw_data[t] = eeg_raw;
       eeg_filtered_data[t] = eeg_filtered;
       eeg_imaginary_data[t] = 0;
       writeRawData(timer_count, timer, heart_rate, eeg_raw);
-      if (ble_out_counter == 5) {
+      if (ble_out_counter == SAMPLE_FREQ / 64) {  //output to ble less often because it slows.
         writeBleRaw(heart_rate, ble_eeg_raw);
         //sendBle(ble_eeg_raw);
         ble_out_counter = 0;
@@ -93,7 +92,8 @@ void loopEeg() {
 }
 
 uint16_t readEEG() {
-  analogRead(EEG_PIN);
+  analogRead(EEG_PIN);  //throw away
+  delay(1);
   return analogRead(EEG_PIN);
 }
 
@@ -108,7 +108,7 @@ void processFFT() {
   FFT.ComplexToMagnitude();                                 // Determines magnitudes from imaginary data (we are not interested in the imaginary part for this FFT application)
   for (byte i = 0; i < 5; i++) {
     waves[i] = getWaveValue(eeg_filtered_data, i);
-    ble_wave_output[i] = double((waves[i]) * adc_conversion_factor) + (2 * (i + 1));
+    ble_wave_output[i] = double((waves[i]) * adc_conversion_factor);  // + (2 * (i + 1));
   }
 }
 

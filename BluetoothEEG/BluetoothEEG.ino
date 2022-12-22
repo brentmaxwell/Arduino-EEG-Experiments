@@ -1,19 +1,21 @@
 #pragma GCC diagnostic ignored "-Wnarrowing"
 #include <Adafruit_TinyUSB.h>
-
 #include "Hardware.h"
 #include "config.h"
 #include "rtc.cpp"
 #include "battery.cpp"
-#include "led.cpp"
+#include "statusLed.cpp"
 #include "data.h"
 
 Battery batt = Battery(BATTERY_PIN, ADC_RESOLUTION, ADC_VOLTAGE_REF);
+//Battery batt = Battery();
 Adafruit_NeoPixel neopixel = Adafruit_NeoPixel(NUM_OF_NEOPIXELS, NEOPIXEL_PIN);
 StatusLED statusLed = StatusLED(neopixel);
 RtcClock rtcClock;
 
 HeartRate heart_rate;
+
+bool bleConnected = false;
 
 unsigned long sample_timer;
 unsigned long period_timer;
@@ -28,6 +30,7 @@ bool stringComplete = false;
 
 void setup() {
   pinMode(BUTTON_PIN, INPUT_PULLDOWN);
+  batt.begin();
   statusLed.begin();
   Serial.begin(BAUD_RATE);
   delay(3000);
@@ -47,8 +50,6 @@ void setup() {
     setupSD();
     setupEEG();
     setupBLE();
-    setupHrm();
-
     Serial.println("complete");
     Serial.flush();
   }
@@ -63,16 +64,12 @@ void loop() {
 
   if (micros() < timer) timer_count++;
   timer = micros();
-  if (timer - secondTimer > 1000000) {
-    batt.update();
-    statusLed.toggle();
-    secondTimer = timer;
-  }
   loopCommand();
   buttonState = digitalRead(BUTTON_PIN);
   if (buttonState > lastButtonState) {
     pressTimer = timer;
     if (!msc_mode) {
+      batt.update();
       double output[1] = { press_count };
       writeMessage(timer_count, timer, String(press_count));
       press_count++;
@@ -85,7 +82,20 @@ void loop() {
   }
   lastButtonState = buttonState;
   if (!msc_mode) {
-    loopBle();
     loopEeg();
+  }
+  if (bleConnected) {
+    loopBle();
+    if (batt.uselc && timer - secondTimer > 10000000) {
+      batt.update();
+    } else if (timer - secondTimer > 600000000) {
+      writeMessage(timer_count, timer, "Battery Update");
+      batt.update();
+      readEEG();
+    }
+  }
+  if (timer - secondTimer > 1000000) {
+    statusLed.toggle();
+    secondTimer = timer;
   }
 }

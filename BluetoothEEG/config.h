@@ -1,6 +1,6 @@
 #define BAUD_RATE 115200
-#define SAMPLE_FREQ 512
-#define SAMPLES 512  // must be power of 2
+#define SAMPLE_FREQ 256
+#define SAMPLES 256  // must be power of 2
 
 #define EEG_RAW 0
 #define EEG_PROCESSED 1
@@ -17,13 +17,13 @@
 
 const double adc_conversion_factor = double(ADC_VOLTAGE_REF) / double(pow(2, ADC_RESOLUTION));
 
-bool outputConfig[4][3] = {
-  //serial, ble, file
-  { true, false, true },  // eeg raw
-  { true, false, true },  // eeg processed
-  { true, false, true },  // hrm
-  { true, false, true }   // message
-};
+// bool outputConfig[4][3] = {
+//   //serial, ble, file
+//   { true, false, true },  // eeg raw
+//   { true, false, true },  // eeg processed
+//   { true, false, true },  // hrm
+//   { true, false, true }   // message
+// };
 
 bool output_serial = true;
 bool output_ble = true;

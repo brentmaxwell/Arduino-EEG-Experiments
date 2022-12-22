@@ -29,7 +29,6 @@ void writeRawData(int timer_count, unsigned long timer, HeartRate heart_rate, do
     Serial.print(message);
     Serial.flush();
   }
-  //writeBle(message);
   writeFile(message);
 }
 
@@ -38,7 +37,7 @@ void writeBleRaw(HeartRate heart_rate, double eeg_value) {
   String message = "";
   message += heart_rate.value;
   message += ",";
-  message += eeg_value;
+  message += constrain(eeg_value, 0, 100);
   message += "\n";
   if (output_ble) {
     writeBle(message);
@@ -49,10 +48,10 @@ void writeBleWaves(HeartRate heart_rate, double eeg_value, double waves[], int w
   String message = "";
   message += heart_rate.value;
   message += ",";
-  message += eeg_value;
+  message += constrain(eeg_value, 0, 100);
   message += ",";
   for (char i = 0; i < wave_len; i++) {
-    message += waves[i];
+    message += constrain(waves[i], 0, 100);
     message += ",";
   }
   message += "\n";

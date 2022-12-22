@@ -31,7 +31,7 @@ void fileDateTime(uint16_t* date, uint16_t* time) {
   *time = FAT_TIME(now.hour(), now.minute(), now.second());
 }
 
-void getFilename(char *buf){
+void getFilename(char* buf) {
   DateTime now = rtcClock.now();
   sprintf(buf, "%04d-%02d-%02dT%02d-%02d-%02d.txt", now.year(), now.month(), now.day(), now.hour(), now.minute(), now.second());
 }
@@ -41,7 +41,7 @@ bool openFile() {
     int fileNum = 0;
     //do {
     //  fileNum++;
-      //sprintf(filename, "/eeg_%02d.txt", fileNum);
+    //sprintf(filename, "/eeg_%02d.txt", fileNum);
     //} while (SD.exists(filename));
 
     char filename[23];
@@ -107,13 +107,13 @@ String listFiles() {
     if (file.isDir()) {
       fileRow += "/";
     }
-    for(char i = fileRow.length(); i<50; i++ ){
+    for (char i = fileRow.length(); i < 50; i++) {
       fileRow += " ";
     }
-    if(!file.isDir()) {
+    if (!file.isDir()) {
       fileRow += file.fileSize();
     }
-    for(char i = fileRow.length(); i<65; i++ ){
+    for (char i = fileRow.length(); i < 65; i++) {
       fileRow += " ";
     }
     fileRow += fileDateTime(dir.createDate, dir.createTime).timestamp();
@@ -123,6 +123,10 @@ String listFiles() {
   }
   root.close();
   return fileList;
+}
+
+bool deleteFile(String filename) {
+  return SD.remove(filename);
 }
 
 

@@ -30,6 +30,7 @@ void loopCommand() {
     }
     if (commandString.startsWith("m")) Run(EventMarkerCommand(commandString));
     if (commandString.startsWith("list")) Run(ListFilesCommand(commandString));
+    if (commandString.startsWith("rm")) Run(DeleteFileCommand(commandString));
     if (commandString.startsWith("start")) Run(StartCommand(commandString));
     if (commandString.startsWith("stop")) Run(StopCommand(commandString));
     if (commandString.startsWith("hwinfo")) HwInfoCommand(commandString);
@@ -63,6 +64,17 @@ String ListFilesCommand(String commandString) {
   return listFiles();
 }
 
+String DeleteFileCommand(String commandString) {
+  String arg1;
+  get_token(commandString, arg1, 1, ' ');
+  if (arg1 != "") {
+    if (deleteFile(arg1)) {
+      return "File deleted";
+    }
+  }
+  return "error deleting";
+}
+
 void ResetCommand(String commandString) {
   String arg1;
   get_token(commandString, arg1, 1, ' ');
@@ -73,7 +85,8 @@ void ResetCommand(String commandString) {
   }
 }
 
-String BattCommand(String commandString){
+String BattCommand(String commandString) {
+  batt.update();
   String output = "";
   output += batt.getBatteryLevel();
   output += " (";
