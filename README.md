@@ -35,7 +35,7 @@ For the second version, I decided to use a smaller microcontroller, skip the dis
 - 1/8" TRS plug (only need one, but I got these to use in other projects: https://www.amazon.com/gp/product/B077XNTSF9/)
 - 1x Tactile Switch Button (12mm square, 6mm tall) (something like this: https://www.adafruit.com/product/1119)
 - Headband (this one in particular folds over perfectly to put the parts in: https://www.amazon.com/gp/product/B08S384T5Z/)
-- Random tiny swith I had
+- Random tiny switch I had
 - Lithium Ion Polymer Battery - 3.7v 500mAh (https://www.adafruit.com/product/1578)
 
 ## Assembly
